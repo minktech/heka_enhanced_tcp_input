@@ -78,7 +78,7 @@ type TcpInputConfig struct {
 	// The message agent for answer the tcp message
 	Agent string
 	// Agent's config
-	AgentConfig map[string]map[string]interface{} `toml:"agent"`
+	AgentConfig map[string]map[string]interface{} `toml:"config"`
 }
 
 func (t *TcpInput) ConfigStruct() interface{} {
