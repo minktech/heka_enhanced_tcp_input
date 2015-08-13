@@ -210,6 +210,7 @@ func (t *TcpInput) Run(ir InputRunner, h PluginHelper) error {
 	t.ir = ir
 	var conn net.Conn
 	var e error
+	go t.agent.Run()
 	for {
 		if conn, e = t.listener.Accept(); e != nil {
 			if netErr, ok := e.(net.Error); ok && netErr.Temporary() {
