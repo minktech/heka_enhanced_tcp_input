@@ -77,6 +77,8 @@ type TcpInputConfig struct {
 	Splitter string
 	// The message agent for answer the tcp message
 	Agent string
+	// Agent's config
+	AgentConfig map[string]map[string]interface{} `toml:"agent"`
 }
 
 func (t *TcpInput) ConfigStruct() interface{} {
@@ -122,6 +124,11 @@ func (t *TcpInput) Init(config interface{}) error {
 		obj := fn()
 		if o, ok := obj.(Agent); ok {
 			t.agent = o
+			if cfg, ok := t.config.AgentConfig[t.config.Agent]; ok {
+				t.agent.Init(cfg, t.listener.Addr().(*net.TCPAddr))
+			} else {
+				fmt.Println("no such config for agent")
+			}
 		} else {
 			return fmt.Errorf("agent (%s) registered is not correct", t.config.Agent)
 		}
