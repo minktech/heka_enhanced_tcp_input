@@ -29,14 +29,14 @@ SOFTWARE.
 
 # ***** END LICENSE BLOCK *****/
 
-package tcp
+package heka_enhanced_tcp_input
 
 import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/mozilla-services/heka/plugins/tcp"
 	"net"
-	"reflect"
 	"sync"
 	"time"
 
@@ -52,7 +52,7 @@ type TcpInput struct {
 	stopChan          chan bool
 	ir                InputRunner
 	config            *TcpInputConfig
-	agent             *Agent
+	agent             Agent
 }
 
 type TcpInputConfig struct {
@@ -66,7 +66,7 @@ type TcpInputConfig struct {
 	// Requires additional Tls config section.
 	UseTls bool `toml:"use_tls"`
 	// Subsection for TLS configuration.
-	Tls TlsConfig
+	Tls tcp.TlsConfig
 	// Set to true if TCP Keep Alive should be used.
 	KeepAlive bool `toml:"keep_alive"`
 	// Integer indicating seconds between keep alives.
@@ -85,7 +85,7 @@ func (t *TcpInput) ConfigStruct() interface{} {
 		Decoder:  "ProtobufDecoder",
 		Splitter: "HekaFramingSplitter",
 	}
-	config.Tls = TlsConfig{PreferServerCiphers: true}
+	config.Tls = tcp.TlsConfig{PreferServerCiphers: true}
 	return config
 }
 
@@ -119,8 +119,10 @@ func (t *TcpInput) Init(config interface{}) error {
 	closeIt = false
 
 	if fn, ok := agents[t.config.Agent]; ok {
-		obj = fn()
-		if obj, ok := obj.(Agent); ok {
+		obj := fn()
+		if o, ok := obj.(Agent); ok {
+			t.agent = o
+		} else {
 			return fmt.Errorf("agent (%s) registered is not correct", t.config.Agent)
 		}
 	} else {
@@ -130,12 +132,12 @@ func (t *TcpInput) Init(config interface{}) error {
 	return nil
 }
 
-func (t *TcpInput) setupTls(tomlConf *TlsConfig) (err error) {
+func (t *TcpInput) setupTls(tomlConf *tcp.TlsConfig) (err error) {
 	if tomlConf.CertFile == "" || tomlConf.KeyFile == "" {
 		return errors.New("TLS config requires both cert_file and key_file value.")
 	}
 	var goConf *tls.Config
-	if goConf, err = CreateGoTlsConfig(tomlConf); err == nil {
+	if goConf, err = tcp.CreateGoTlsConfig(tomlConf); err == nil {
 		t.listener = tls.NewListener(t.listener, goConf)
 	}
 	return
@@ -181,7 +183,7 @@ func (t *TcpInput) handleConnection(conn net.Conn) {
 				if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
 					// keep the connection open, we are just checking to see if
 					// we are shutting down: Issue #354
-				} else if aerr, ok := err.(NeedAnserError); ok {
+				} else if aerr, ok := err.(NeedAnswerError); ok {
 					if bts, err := t.agent.AnswerError(aerr); err == nil {
 						conn.Write(bts)
 					}
